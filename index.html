@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pendências – Oficinas Externas</title>
+<style>
+:root{
+  --bg:#f4f4f2; --surface:#fcfcfb; --surface-2:#f0efec; --border:#e2e1dc;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#7a7974;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s7:#6250d6;
+  --neutral:#8a8983;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --critical-bg:#fbeaea; --warning-bg:#fdf5e1; --info-bg:#eaf2fc;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --border:#333331;
+    --text:#f0efec; --text-2:#c3c2b7; --muted:#8f8e86;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s7:#9085e9;
+    --neutral:#6f6e68;
+    --critical-bg:#3a1d1d; --warning-bg:#3a2f14; --info-bg:#172a42;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.4}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;font-weight:650}
+header .sub{color:var(--text-2);font-size:12.5px}
+.hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button,.btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover,.btn:hover{border-color:var(--text-2)}
+main{max-width:1280px;margin:0 auto;padding:18px 20px 40px}
+.notice{padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px;border:1px solid var(--border);background:var(--surface)}
+.notice.err{border-color:var(--critical);background:var(--critical-bg)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;text-align:left}
+.kpi[aria-pressed="true"]{outline:2px solid var(--s1);outline-offset:-1px}
+.kpi .lab{color:var(--text-2);font-size:12.5px;display:flex;gap:6px;align-items:center}
+.kpi .val{font-size:30px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .hint{color:var(--muted);font-size:11.5px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:16px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.panel h2{font-size:14px;margin:0 0 10px;font-weight:600}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar-row{display:grid;grid-template-columns:150px 1fr 28px;gap:8px;align-items:center;cursor:pointer;padding:2px 0;border-radius:6px}
+.bar-row:hover{background:var(--surface-2)}
+.bar-row .name{font-size:12.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row .track{height:14px;position:relative}
+.bar-row .fill{height:14px;border-radius:0 4px 4px 0;min-width:3px}
+.bar-row .n{font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right}
+.bar-row.active .name{color:var(--text);font-weight:600}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.filters input,.filters select{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.filters input{min-width:220px}
+.chip{font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface)}
+.count{color:var(--text-2);font-size:12.5px;margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-left:5px solid var(--neutral);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.card .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.placa{font-size:17px;font-weight:700;letter-spacing:.5px}
+.tipo{color:var(--text-2);font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--surface-2);white-space:nowrap}
+.flags{display:flex;flex-wrap:wrap;gap:6px}
+.flag{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:6px;display:inline-flex;gap:4px;align-items:center}
+.flag.crit{background:var(--critical-bg);color:var(--critical)}
+.flag.warn{background:var(--warning-bg);color:var(--text)}
+.flag.info{background:var(--info-bg);color:var(--text)}
+.kv{display:grid;grid-template-columns:136px 1fr;gap:3px 10px;font-size:13px}
+.kv dt{color:var(--text-2)}
+.kv dd{margin:0}
+.desc{font-size:13px;color:var(--text);background:var(--surface-2);border-radius:8px;padding:8px 10px}
+details{font-size:12.5px}
+details summary{cursor:pointer;color:var(--text-2)}
+.hist{margin:8px 0 0;padding:0;list-style:none;border-left:2px solid var(--border)}
+.hist li{padding:4px 0 6px 10px;position:relative}
+.hist li::before{content:"";position:absolute;left:-5px;top:9px;width:8px;height:8px;border-radius:50%;background:var(--neutral)}
+.hist .when{color:var(--muted);font-size:11.5px}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:12.5px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:var(--surface-2);font-weight:600;color:var(--text-2);position:sticky;top:0}
+.empty{padding:30px;text-align:center;color:var(--text-2)}
+#tip{position:fixed;pointer-events:none;background:var(--text);color:var(--surface);font-size:12px;padding:6px 9px;border-radius:6px;opacity:0;transition:opacity .1s;z-index:20;max-width:260px}
+footer{color:var(--muted);font-size:11.5px;margin-top:22px}
+.drop{border:2px dashed var(--border);border-radius:10px;padding:26px;text-align:center;color:var(--text-2);background:var(--surface)}
+@media print{header{position:static}.filters,.hdr-actions,details{display:none}.card{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Pendências – Oficinas Externas</h1>
+    <div class="sub" id="sub">Carregando…</div>
+  </div>
+  <div class="hdr-actions">
+    <button id="btnView" type="button">Ver em tabela</button>
+    <button id="btnReload" type="button" title="Recarregar a planilha do repositório">Atualizar</button>
+    <label class="btn" title="Abrir uma planilha do seu computador">Abrir planilha…<input id="file" type="file" accept=".xlsx" hidden></label>
+  </div>
+</header>
+<main>
+  <div id="msg"></div>
+  <section class="kpis" id="kpis"></section>
+  <section class="charts">
+    <div class="panel"><h2>Pendências por status</h2><div class="bars" id="chStatus"></div></div>
+    <div class="panel"><h2>Pendências por oficina</h2><div class="bars" id="chOficina"></div></div>
+  </section>
+  <div class="filters">
+    <input id="q" type="search" placeholder="Buscar placa, oficina, serviço…">
+    <select id="fStatus"><option value="">Todos os status</option></select>
+    <select id="fOficina"><option value="">Todas as oficinas</option></select>
+    <button id="btnClear" type="button">Limpar filtros</button>
+    <span class="count" id="count"></span>
+  </div>
+  <section id="list"></section>
+  <footer id="foot"></footer>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>if(!window.XLSX){document.write('<script src="vendor/xlsx.full.min.js"><\/script>')}</script>
+<script>
+"use strict";
+const ARQUIVO = "dados/Sistema_Acompanhamento_Oficinas_Externas.xlsx";
+const ABA = "Historico_Atualizacoes";
+
+/* cor por status (segue o status em todo o painel: badge, barra, borda do card) */
+const STATUS_COR = {
+  "em manutenção":"var(--s1)", "aguardando peça":"var(--s2)", "aguardando orçamento":"var(--s3)",
+  "aguardando autorização":"var(--s4)", "aguardando diagnóstico":"var(--s5)",
+  "atrasado":"var(--critical)", "sem atualização":"var(--neutral)"
+};
+const STATUS_ORDEM = ["Atrasado","Aguardando autorização","Aguardando orçamento","Aguardando peça","Aguardando diagnóstico","Em manutenção","Sem atualização"];
+const corStatus = s => STATUS_COR[(s||"").toLowerCase()] || "var(--neutral)";
+
+let veiculos = [], filtro = {q:"",status:"",oficina:"",alerta:""}, modoTabela=false, fonteDados="";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const txt = v => (v===null||v===undefined||String(v).trim()==="") ? "não informado" : String(v).trim();
+
+/* número serial do Excel -> Date no horário local (evita desvio de fuso) */
+function serialParaData(v){
+  if (v instanceof Date) return v;
+  if (typeof v !== "number" || !isFinite(v)) return null;
+  const dias = Math.floor(v), frac = v - dias;
+  const min = Math.round(frac*1440);
+  return new Date(1899, 11, 30 + dias, Math.floor(min/60), min%60);
+}
+const temHora = d => d && (d.getHours()!==0 || d.getMinutes()!==0);
+const pad = n => String(n).padStart(2,"0");
+const fmtData = d => d ? `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}` + (temHora(d)?` ${pad(d.getHours())}h${d.getMinutes()?pad(d.getMinutes()):""}`:"") : "não informado";
+const inicioDia = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const diasEntre = (a,b) => Math.round((inicioDia(b)-inicioDia(a))/864e5);
+
+function processar(wb){
+  const ws = wb.Sheets[ABA];
+  if (!ws) throw new Error(`Aba "${ABA}" não encontrada na planilha.`);
+  const linhas = XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  const h = linhas.findIndex(r => r && String(r[0]||"").trim().toLowerCase().startsWith("data e hora"));
+  if (h<0) throw new Error("Cabeçalho do histórico não encontrado.");
+
+  const tipoPorPlaca = {};
+  const cad = wb.Sheets["Cadastro_Veiculos"];
+  if (cad) XLSX.utils.sheet_to_json(cad,{header:1,raw:true,defval:null}).forEach(r=>{
+    if (r && r[1]) tipoPorPlaca[String(r[1]).trim().toUpperCase()] = r[0];
+  });
+
+  const grupos = new Map(); let ultimaAtualizacao = null, nRegistros = 0;
+  linhas.slice(h+1).forEach((r,i)=>{
+    if (!r || (!r[1] && !r[2])) return;
+    const placa = String(r[2]||"").trim().toUpperCase();
+    const chave = placa || String(r[1]).trim().toUpperCase();
+    const reg = {
+      ordem:i, data:serialParaData(r[0]), prefixo:r[1], placa, oficina:r[3], canal:r[4], contato:r[5],
+      servico:r[6], status:txt(r[7]), descricao:r[8], previsao:r[9], acao:r[10], obs:r[11]
+    };
+    nRegistros++;
+    if (reg.data && (!ultimaAtualizacao || reg.data>ultimaAtualizacao)) ultimaAtualizacao = reg.data;
+    if (!grupos.has(chave)) grupos.set(chave,[]);
+    grupos.get(chave).push(reg);
+  });
+
+  const agora = new Date(), hoje = inicioDia(agora);
+  const lista = []; let liberados = 0;
+  grupos.forEach((regs,chave)=>{
+    const u = regs[regs.length-1];               // último registro na ordem das linhas (igual à planilha)
+    if (u.status.toLowerCase()==="liberado"){ liberados++; return; }
+    const prevData = serialParaData(u.previsao);
+    const prevTexto = prevData ? fmtData(prevData) : txt(u.previsao);
+    let situacaoPrev = "sem";                      // sem | vencida | hoje | futura
+    if (prevData){
+      if (temHora(prevData) ? prevData < agora : prevData < hoje) situacaoPrev = "vencida";
+      else if (inicioDia(prevData).getTime()===hoje.getTime()) situacaoPrev = "hoje";
+      else situacaoPrev = "futura";
+    }
+    // conta a partir da intervenção atual: primeiro registro após a última liberação
+    let ini = 0; regs.forEach((x,i)=>{ if (x.status.toLowerCase()==="liberado") ini = i+1; });
+    const entrada = regs.slice(ini).find(x=>x.data)?.data || null;
+    const diasSemAtualizar = u.data ? diasEntre(u.data, agora) : null;
+    lista.push({
+      chave, placa:u.placa||chave, tipo: tipoPorPlaca[u.placa] || u.prefixo || "", oficina:txt(u.oficina),
+      status:u.status, servico:txt(u.servico), descricao:txt(u.descricao), acao:txt(u.acao),
+      prevData, prevTexto, situacaoPrev, ultima:u.data, entrada,
+      diasAcomp: entrada ? diasEntre(entrada, agora) : null, diasSemAtualizar,
+      historico: regs.slice().reverse()
+    });
+  });
+  const peso = v => ({vencida:0,hoje:1,futura:2,sem:3})[v.situacaoPrev];
+  lista.sort((a,b)=> peso(a)-peso(b) || ((a.prevData||0)-(b.prevData||0)) || a.placa.localeCompare(b.placa));
+  return {lista, liberados, ultimaAtualizacao, nRegistros};
+}
+
+function alertasDe(v){
+  const a = [];
+  if (v.situacaoPrev==="vencida") a.push(["crit","⚠ Previsão vencida – confirmar"]);
+  if (v.situacaoPrev==="hoje") a.push(["warn","⏱ Previsão para hoje"]);
+  if (v.situacaoPrev==="sem") a.push(["info","• Sem previsão"]);
+  if (v.diasSemAtualizar!==null && v.diasSemAtualizar>=2) a.push(["warn",`⟳ ${v.diasSemAtualizar} dias sem atualização`]);
+  return a;
+}
+
+function passaFiltro(v){
+  if (filtro.status && v.status!==filtro.status) return false;
+  if (filtro.oficina && v.oficina!==filtro.oficina) return false;
+  if (filtro.alerta==="vencida" && v.situacaoPrev!=="vencida") return false;
+  if (filtro.alerta==="hoje" && v.situacaoPrev!=="hoje") return false;
+  if (filtro.alerta==="sem" && v.situacaoPrev!=="sem") return false;
+  if (filtro.q){
+    const alvo = [v.placa,v.tipo,v.oficina,v.status,v.servico,v.descricao,v.acao].join(" ").toLowerCase();
+    if (!alvo.includes(filtro.q.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function renderKpis(){
+  const n = s => veiculos.filter(v=>v.situacaoPrev===s).length;
+  const tiles = [
+    ["", "Veículos pendentes", veiculos.length, "não liberados", "var(--text-2)"],
+    ["vencida","Previsão vencida", n("vencida"), "sem confirmação de liberação", "var(--critical)"],
+    ["hoje","Previsão para hoje", n("hoje"), "confirmar ao longo do dia", "var(--warning)"],
+    ["sem","Sem previsão", n("sem"), "cobrar prazo da oficina", "var(--neutral)"]
+  ];
+  $("kpis").innerHTML = tiles.map(([k,lab,val,hint,cor])=>`
+    <button class="kpi" type="button" data-alerta="${k}" aria-pressed="${filtro.alerta===k && (k!==""||!filtro.status&&!filtro.oficina&&!filtro.q)}">
+      <div class="lab"><span class="dot" style="background:${cor}"></span>${lab}</div>
+      <div class="val">${val}</div><div class="hint">${hint}</div>
+    </button>`).join("");
+  $("kpis").querySelectorAll(".kpi").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.alerta; if(k===""){limpar();return;}
+    filtro.alerta = filtro.alerta===k ? "" : k; render();
+  });
+}
+
+function barras(el, pares, corFn, campo){
+  const max = Math.max(1,...pares.map(p=>p[1]));
+  el.innerHTML = pares.length ? pares.map(([nome,q])=>`
+    <div class="bar-row ${filtro[campo]===nome?"active":""}" data-v="${esc(nome)}" data-tip="${esc(nome)}: ${q} veículo${q>1?"s":""}">
+      <span class="name">${esc(nome)}</span>
+      <span class="track"><span class="fill" style="display:block;width:${q/max*100}%;background:${corFn(nome)}"></span></span>
+      <span class="n">${q}</span>
+    </div>`).join("") : `<div class="empty">Nenhuma pendência</div>`;
+  el.querySelectorAll(".bar-row").forEach(r=>{
+    r.onclick=()=>{ filtro[campo] = filtro[campo]===r.dataset.v ? "" : r.dataset.v; syncSelects(); render(); };
+    r.onmousemove=e=>tip(e,r.dataset.tip); r.onmouseleave=()=>tip(null);
+  });
+}
+function contar(campo){
+  const m = new Map(); veiculos.forEach(v=>m.set(v[campo],(m.get(v[campo])||0)+1));
+  return [...m.entries()];
+}
+
+function renderCharts(){
+  const st = contar("status").sort((a,b)=>{
+    const ia=STATUS_ORDEM.indexOf(a[0]), ib=STATUS_ORDEM.indexOf(b[0]);
+    return (ia<0?99:ia)-(ib<0?99:ib);
+  });
+  barras($("chStatus"), st, corStatus, "status");
+  barras($("chOficina"), contar("oficina").sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])), ()=>"var(--s1)", "oficina");
+}
+
+function card(v){
+  const al = alertasDe(v).map(([c,t])=>`<span class="flag ${c}">${esc(t)}</span>`).join("");
+  const hist = v.historico.map(h=>`<li><div class="when">${fmtData(h.data)} · ${esc(txt(h.status))}</div>${esc(txt(h.descricao))}</li>`).join("");
+  return `<article class="card" style="border-left-color:${corStatus(v.status)}">
+    <div class="top">
+      <div><div class="placa">${esc(v.placa)}</div><div class="tipo">${esc(v.tipo||"")}</div></div>
+      <span class="badge"><span class="dot" style="background:${corStatus(v.status)}"></span>${esc(v.status)}</span>
+    </div>
+    ${al?`<div class="flags">${al}</div>`:""}
+    <dl class="kv">
+      <dt>Oficina</dt><dd><strong>${esc(v.oficina)}</strong></dd>
+      <dt>Serviço</dt><dd>${esc(v.servico)}</dd>
+      <dt>Previsão</dt><dd>${esc(v.prevTexto)}</dd>
+      <dt>Próxima ação</dt><dd>${esc(v.acao)}</dd>
+      <dt>Em acompanhamento</dt><dd>${v.entrada?`desde ${fmtData(inicioDia(v.entrada))} (${v.diasAcomp} dia${v.diasAcomp===1?"":"s"})`:"não informado"}</dd>
+      <dt>Última atualização</dt><dd>${fmtData(v.ultima)}</dd>
+    </dl>
+    <div class="desc">${esc(v.descricao)}</div>
+    <details><summary>Histórico (${v.historico.length} registro${v.historico.length>1?"s":""})</summary><ul class="hist">${hist}</ul></details>
+  </article>`;
+}
+
+function tabela(lista){
+  return `<div style="overflow:auto"><table><thead><tr>
+    <th>Placa</th><th>Tipo</th><th>Oficina</th><th>Status</th><th>Serviço</th><th>Previsão</th><th>Alerta</th><th>Próxima ação</th><th>Última atualização</th>
+  </tr></thead><tbody>${lista.map(v=>`<tr>
+    <td><strong>${esc(v.placa)}</strong></td><td>${esc(v.tipo)}</td><td>${esc(v.oficina)}</td>
+    <td><span class="badge"><span class="dot" style="background:${corStatus(v.status)}"></span>${esc(v.status)}</span></td>
+    <td>${esc(v.servico)}</td><td>${esc(v.prevTexto)}</td>
+    <td>${alertasDe(v).map(([c,t])=>`<span class="flag ${c}">${esc(t)}</span>`).join(" ")}</td>
+    <td>${esc(v.acao)}</td><td>${fmtData(v.ultima)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function render(){
+  renderKpis(); renderCharts();
+  const lista = veiculos.filter(passaFiltro);
+  $("count").textContent = `${lista.length} de ${veiculos.length} pendência${veiculos.length===1?"":"s"}`;
+  $("list").innerHTML = !lista.length ? `<div class="empty panel">Nenhum veículo pendente com esses filtros.</div>`
+    : modoTabela ? tabela(lista) : `<div class="grid">${lista.map(card).join("")}</div>`;
+}
+
+function syncSelects(){ $("fStatus").value=filtro.status; $("fOficina").value=filtro.oficina; }
+function limpar(){ filtro={q:"",status:"",oficina:"",alerta:""}; $("q").value=""; syncSelects(); render(); }
+
+function preencherSelects(){
+  const sts=[...new Set(veiculos.map(v=>v.status))].sort((a,b)=>STATUS_ORDEM.indexOf(a)-STATUS_ORDEM.indexOf(b));
+  const ofs=[...new Set(veiculos.map(v=>v.oficina))].sort();
+  $("fStatus").innerHTML='<option value="">Todos os status</option>'+sts.map(s=>`<option>${esc(s)}</option>`).join("");
+  $("fOficina").innerHTML='<option value="">Todas as oficinas</option>'+ofs.map(s=>`<option>${esc(s)}</option>`).join("");
+  syncSelects();
+}
+
+function aplicar(buf, origem){
+  const wb = XLSX.read(buf,{type:"array"});
+  const r = processar(wb);
+  veiculos = r.lista; fonteDados = origem;
+  $("sub").textContent = `Última atualização registrada: ${fmtData(r.ultimaAtualizacao)} · ${veiculos.length} pendente${veiculos.length===1?"":"s"} · ${r.liberados} liberado${r.liberados===1?"":"s"} (fora do painel)`;
+  $("foot").textContent = `Fonte: ${origem} · ${r.nRegistros} registros no histórico · Status pelo último registro de cada placa. Previsão não é liberação: veículo só sai do painel com registro "Liberado". Painel gerado em ${fmtData(new Date())}.`;
+  $("msg").innerHTML="";
+  preencherSelects(); render();
+}
+
+function erro(m){
+  $("msg").innerHTML = `<div class="notice err">${esc(m)}</div>`;
+  $("sub").textContent = "Dados não carregados";
+}
+
+async function carregarRepo(){
+  if (location.protocol==="file:"){
+    $("sub").textContent="Aberto direto do computador";
+    $("list").innerHTML = `<div class="drop">Aberto como arquivo local, o navegador não lê a planilha sozinho.<br>Use <strong>Abrir planilha…</strong> ou arraste o arquivo .xlsx para esta área.</div>`;
+    return;
+  }
+  try{
+    const resp = await fetch(ARQUIVO+"?t="+Date.now(),{cache:"no-store"});
+    if(!resp.ok) throw new Error(`Não foi possível baixar ${ARQUIVO} (HTTP ${resp.status}).`);
+    aplicar(await resp.arrayBuffer(), ARQUIVO);
+  }catch(e){ erro(e.message+" Você pode usar “Abrir planilha…”."); }
+}
+
+function lerArquivo(f){
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ aplicar(rd.result, f.name+" (arquivo local)"); }catch(e){ erro(e.message); } };
+  rd.readAsArrayBuffer(f);
+}
+
+const tipEl=$("tip");
+function tip(e,t){
+  if(!e){tipEl.style.opacity=0;return;}
+  tipEl.textContent=t; tipEl.style.opacity=1;
+  tipEl.style.left=Math.min(e.clientX+12, innerWidth-tipEl.offsetWidth-8)+"px"; tipEl.style.top=(e.clientY+14)+"px";
+}
+
+$("q").oninput=e=>{filtro.q=e.target.value.trim(); render();};
+$("fStatus").onchange=e=>{filtro.status=e.target.value; render();};
+$("fOficina").onchange=e=>{filtro.oficina=e.target.value; render();};
+$("btnClear").onclick=limpar;
+$("btnReload").onclick=carregarRepo;
+$("btnView").onclick=()=>{modoTabela=!modoTabela; $("btnView").textContent=modoTabela?"Ver em cartões":"Ver em tabela"; render();};
+$("file").onchange=e=>{ if(e.target.files[0]) lerArquivo(e.target.files[0]); };
+document.addEventListener("dragover",e=>e.preventDefault());
+document.addEventListener("drop",e=>{e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) lerArquivo(f);});
+carregarRepo();
+</script>
+</body>
+</html>
