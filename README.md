@@ -26,6 +26,11 @@ dados/Sistema_Acompanhamento_Oficinas_Externas.xlsx   planilha de controle
 - Ordem dos cartões: vencida → hoje → previsões futuras → sem previsão.
 - Clicar nos indicadores ou nas barras filtra a lista. Há também busca por placa, oficina ou serviço e um botão para ver em tabela.
 
+## Peças e agendamentos
+
+- Aba **Pecas_Compras**: uma linha por atualização de cada peça. O painel mostra o último status de cada combinação peça + destino até ela ficar *Recebida*, *Instalada* ou *Cancelada*, e também lista as peças dentro do cartão do veículo de destino.
+- Aba **Agendamentos**: entradas em oficina já marcadas. O agendamento sai do painel quando fica *Entrada confirmada* (aí o veículo é lançado no histórico) ou *Cancelado*. Se a hora da entrada passar sem confirmação, aparece o aviso "Entrada não confirmada".
+
 ## Publicar no GitHub Pages (uma vez)
 
 1. Crie um repositório no GitHub (ex.: `painel-oficinas`).

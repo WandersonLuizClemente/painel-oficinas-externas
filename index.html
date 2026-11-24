@@ -81,6 +81,14 @@ table{width:100%;border-collapse:collapse;background:var(--surface);border:1px s
 th,td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
 th{background:var(--surface-2);font-weight:600;color:var(--text-2);position:sticky;top:0}
 .empty{padding:30px;text-align:center;color:var(--text-2)}
+.extras{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:12px;margin-bottom:16px}
+.extras .panel h2{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.extras .panel h2 small{color:var(--text-2);font-weight:400;font-size:12px}
+.mini{width:100%;border-collapse:collapse;font-size:12.5px;border:0;border-radius:0}
+.mini th,.mini td{padding:6px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;background:transparent}
+.mini th{color:var(--text-2);font-weight:600;position:static}
+.mini .obs{color:var(--text-2);font-size:11.5px;margin-top:2px}
+.pecas-v{margin:0;padding-left:16px}
 #tip{position:fixed;pointer-events:none;background:var(--text);color:var(--surface);font-size:12px;padding:6px 9px;border-radius:6px;opacity:0;transition:opacity .1s;z-index:20;max-width:260px}
 footer{color:var(--muted);font-size:11.5px;margin-top:22px}
 .drop{border:2px dashed var(--border);border-radius:10px;padding:26px;text-align:center;color:var(--text-2);background:var(--surface)}
@@ -106,6 +114,11 @@ footer{color:var(--muted);font-size:11.5px;margin-top:22px}
     <div class="panel"><h2>Pendências por status</h2><div class="bars" id="chStatus"></div></div>
     <div class="panel"><h2>Pendências por oficina</h2><div class="bars" id="chOficina"></div></div>
   </section>
+  <section class="extras">
+    <div class="panel"><h2>Peças em cotação / compra <small id="pecasN"></small></h2><div id="pecas"></div></div>
+    <div class="panel"><h2>Agendamentos de entrada <small id="agendN"></small></h2><div id="agend"></div></div>
+  </section>
+  <h2 style="font-size:15px;margin:4px 0 10px">Veículos em oficina</h2>
   <div class="filters">
     <input id="q" type="search" placeholder="Buscar placa, oficina, serviço…">
     <select id="fStatus"><option value="">Todos os status</option></select>
@@ -134,6 +147,7 @@ const STATUS_COR = {
 const STATUS_ORDEM = ["Atrasado","Aguardando autorização","Aguardando orçamento","Aguardando peça","Aguardando diagnóstico","Em manutenção","Sem atualização"];
 const corStatus = s => STATUS_COR[(s||"").toLowerCase()] || "var(--neutral)";
 
+let pecas = [], agendamentos = [];
 let veiculos = [], filtro = {q:"",status:"",oficina:"",alerta:""}, modoTabela=false, fonteDados="";
 
 const $ = id => document.getElementById(id);
@@ -234,6 +248,67 @@ function passaFiltro(v){
   return true;
 }
 
+const PECA_FIM = ["recebida","instalada","cancelada"];
+const PECA_ORDEM = ["Em trânsito","Pedido emitido","Compra autorizada","Aguardando aprovação","Em cotação"];
+const PECA_COR = {"em cotação":"var(--neutral)","aguardando aprovação":"var(--s4)","compra autorizada":"var(--s3)","pedido emitido":"var(--s1)","em trânsito":"var(--s7)"};
+const corPeca = s => PECA_COR[(s||"").toLowerCase()] || "var(--neutral)";
+const norm = s => String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").trim().toLowerCase();
+
+function lerAba(wb, nome){
+  const ws = wb.Sheets[nome]; if(!ws) return [];
+  const rows = XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  const h = rows.findIndex(r => r && norm(r[0]).startsWith("data e hora"));
+  return h<0 ? [] : rows.slice(h+1).filter(r => r && r.some(c => c!==null && String(c).trim()!==""));
+}
+function ultimoPorChave(rows, chaveFn){
+  const m = new Map();
+  rows.forEach((r,i)=>{ const k=chaveFn(r); if(!k) return; if(!m.has(k)) m.set(k,[]); m.get(k).push(r); });
+  return [...m.values()];
+}
+function processarExtras(wb){
+  const agora = new Date(), hoje = inicioDia(agora);
+  pecas = ultimoPorChave(lerAba(wb,"Pecas_Compras"), r => r[1] ? norm(r[1])+"|"+norm(r[3]) : null).map(regs=>{
+    const u = regs[regs.length-1], prev = serialParaData(u[7]);
+    return {item:txt(u[1]), qtd:u[2], destino:txt(u[3]), fornecedor:txt(u[4]), valor:u[5], situacao:txt(u[6]),
+      prevData:prev, prevTexto: prev?fmtData(prev):txt(u[7]), obs:u[8], data:serialParaData(u[0]),
+      vencida: prev && prev < hoje, hist: regs.slice().reverse()};
+  }).filter(p => !PECA_FIM.includes(norm(p.situacao)))
+    .sort((a,b)=> (PECA_ORDEM.indexOf(a.situacao)+99)%99 - (PECA_ORDEM.indexOf(b.situacao)+99)%99 || a.destino.localeCompare(b.destino) || a.item.localeCompare(b.item));
+  agendamentos = ultimoPorChave(lerAba(wb,"Agendamentos"), r => (r[2]||r[1]) ? norm(r[2]||r[1])+"|"+norm(r[4]) : null).map(regs=>{
+    const u = regs[regs.length-1], ent = serialParaData(u[5]), prev = serialParaData(u[6]);
+    let alerta = null;
+    if (ent && (temHora(ent) ? ent < agora : ent < hoje)) alerta = ["crit","⚠ Entrada não confirmada"];
+    else if (ent && inicioDia(ent).getTime()===hoje.getTime()) alerta = ["warn","⏱ Entrada hoje"];
+    return {prefixo:u[1], placa:String(u[2]||"").toUpperCase(), oficina:txt(u[3]), servico:txt(u[4]), ent, prev,
+      situacao:txt(u[7]), obs:u[8], data:serialParaData(u[0]), alerta};
+  }).filter(a => !["entrada confirmada","cancelado"].includes(norm(a.situacao)))
+    .sort((a,b)=> (a.ent||Infinity)-(b.ent||Infinity));
+}
+function pecasDoVeiculo(v){
+  const alvo = norm(v.placa);
+  return pecas.filter(p => (p.destino.match(/[A-Za-z]*\d[A-Za-z0-9]*/g)||[]).some(t => t.length>=3 && alvo.includes(norm(t))));
+}
+function renderExtras(){
+  $("pecasN").textContent = `${pecas.length} item${pecas.length===1?"":"s"}`;
+  $("pecas").innerHTML = !pecas.length ? `<div class="empty">Nenhuma peça pendente</div>` : `<div style="overflow:auto"><table class="mini"><thead><tr>
+    <th>Peça</th><th>Destino</th><th>Fornecedor</th><th>Situação</th><th>Entrega</th></tr></thead><tbody>${pecas.map(p=>`<tr>
+      <td><strong>${esc(p.item)}</strong>${p.qtd?` <span class="tipo">(${esc(p.qtd)})</span>`:""}${p.obs?`<div class="obs">${esc(p.obs)}</div>`:""}</td>
+      <td>${esc(p.destino)}</td>
+      <td>${esc(p.fornecedor)}${typeof p.valor==="number"?`<div class="obs">R$ ${p.valor.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>`:""}</td>
+      <td><span class="badge"><span class="dot" style="background:${corPeca(p.situacao)}"></span>${esc(p.situacao)}</span></td>
+      <td>${esc(p.prevTexto)}${p.vencida?`<div><span class="flag crit">⚠ Entrega vencida</span></div>`:""}<div class="obs">atualizado ${fmtData(p.data)}</div></td>
+    </tr>`).join("")}</tbody></table></div>`;
+  $("agendN").textContent = `${agendamentos.length} agendado${agendamentos.length===1?"":"s"}`;
+  $("agend").innerHTML = !agendamentos.length ? `<div class="empty">Nenhum agendamento pendente</div>` : `<div style="overflow:auto"><table class="mini"><thead><tr>
+    <th>Placa</th><th>Oficina</th><th>Serviço</th><th>Entrada</th><th>Previsão de saída</th></tr></thead><tbody>${agendamentos.map(a=>`<tr>
+      <td><strong>${esc(a.placa)}</strong><div class="obs">${esc(a.prefixo||"")}</div></td>
+      <td>${esc(a.oficina)}</td>
+      <td>${esc(a.servico)}${a.obs?`<div class="obs">${esc(a.obs)}</div>`:""}</td>
+      <td>${a.ent?fmtData(a.ent):"não informado"}<div><span class="badge">${esc(a.situacao)}</span></div>${a.alerta?`<div style="margin-top:4px"><span class="flag ${a.alerta[0]}">${esc(a.alerta[1])}</span></div>`:""}</td>
+      <td>${a.prev?fmtData(a.prev):"não informado"}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+}
+
 function renderKpis(){
   const n = s => veiculos.filter(v=>v.situacaoPrev===s).length;
   const tiles = [
@@ -296,6 +371,7 @@ function card(v){
       <dt>Próxima ação</dt><dd>${esc(v.acao)}</dd>
       <dt>Em acompanhamento</dt><dd>${v.entrada?`desde ${fmtData(inicioDia(v.entrada))} (${v.diasAcomp} dia${v.diasAcomp===1?"":"s"})`:"não informado"}</dd>
       <dt>Última atualização</dt><dd>${fmtData(v.ultima)}</dd>
+      ${(()=>{const ps=pecasDoVeiculo(v); return ps.length?`<dt>Peças</dt><dd><ul class="pecas-v">${ps.map(p=>`<li>${esc(p.item)} – <strong>${esc(p.situacao)}</strong>${p.prevData?`, entrega ${esc(p.prevTexto)}`:""}${p.fornecedor!=="não informado"?` (${esc(p.fornecedor)})`:""}</li>`).join("")}</ul></dd>`:""})()}
     </dl>
     <div class="desc">${esc(v.descricao)}</div>
     <details><summary>Histórico (${v.historico.length} registro${v.historico.length>1?"s":""})</summary><ul class="hist">${hist}</ul></details>
@@ -314,7 +390,7 @@ function tabela(lista){
 }
 
 function render(){
-  renderKpis(); renderCharts();
+  renderKpis(); renderCharts(); renderExtras();
   const lista = veiculos.filter(passaFiltro);
   $("count").textContent = `${lista.length} de ${veiculos.length} pendência${veiculos.length===1?"":"s"}`;
   $("list").innerHTML = !lista.length ? `<div class="empty panel">Nenhum veículo pendente com esses filtros.</div>`
@@ -335,9 +411,10 @@ function preencherSelects(){
 function aplicar(buf, origem){
   const wb = XLSX.read(buf,{type:"array"});
   const r = processar(wb);
+  processarExtras(wb);
   veiculos = r.lista; fonteDados = origem;
   $("sub").textContent = `Última atualização registrada: ${fmtData(r.ultimaAtualizacao)} · ${veiculos.length} pendente${veiculos.length===1?"":"s"} · ${r.liberados} liberado${r.liberados===1?"":"s"} (fora do painel)`;
-  $("foot").textContent = `Fonte: ${origem} · ${r.nRegistros} registros no histórico · Status pelo último registro de cada placa. Previsão não é liberação: veículo só sai do painel com registro "Liberado". Painel gerado em ${fmtData(new Date())}.`;
+  $("foot").textContent = `Fonte: ${origem} · ${r.nRegistros} registros no histórico · Status pelo último registro de cada placa. Previsão não é liberação: veículo só sai do painel com registro "Liberado". Peças saem quando Recebida/Instalada/Cancelada; agendamentos, quando a entrada é confirmada ou cancelada. Painel gerado em ${fmtData(new Date())}.`;
   $("msg").innerHTML="";
   preencherSelects(); render();
 }
