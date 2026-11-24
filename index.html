@@ -127,6 +127,14 @@ footer{color:var(--muted);font-size:11.5px;margin-top:22px}
     <span class="count" id="count"></span>
   </div>
   <section id="list"></section>
+  <section class="panel" style="margin-top:18px">
+    <h2 style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">Veículos liberados <small style="color:var(--text-2);font-weight:400;font-size:12px" id="libN"></small></h2>
+    <div class="filters" style="margin-bottom:8px">
+      <input id="qLib" type="search" placeholder="Buscar placa ou oficina…">
+      <select id="fLibDia"><option value="">Todas as datas</option></select>
+    </div>
+    <div id="liberados"></div>
+  </section>
   <footer id="foot"></footer>
 </main>
 <div id="tip" role="tooltip"></div>
@@ -147,7 +155,7 @@ const STATUS_COR = {
 const STATUS_ORDEM = ["Atrasado","Aguardando autorização","Aguardando orçamento","Aguardando peça","Aguardando diagnóstico","Em manutenção","Sem atualização"];
 const corStatus = s => STATUS_COR[(s||"").toLowerCase()] || "var(--neutral)";
 
-let pecas = [], agendamentos = [];
+let pecas = [], agendamentos = [], liberadosLista = [], filtroLib = {q:"",dia:""};
 let veiculos = [], filtro = {q:"",status:"",oficina:"",alerta:""}, modoTabela=false, fonteDados="";
 
 const $ = id => document.getElementById(id);
@@ -223,7 +231,22 @@ function processar(wb){
   });
   const peso = v => ({vencida:0,hoje:1,futura:2,sem:3})[v.situacaoPrev];
   lista.sort((a,b)=> peso(a)-peso(b) || ((a.prevData||0)-(b.prevData||0)) || a.placa.localeCompare(b.placa));
-  return {lista, liberados, ultimaAtualizacao, nRegistros};
+  // cada registro "Liberado" vira uma linha (um veículo pode ter mais de uma passagem)
+  const libs = [];
+  grupos.forEach((regs,chave)=>{
+    let ini = 0;
+    regs.forEach((x,i)=>{
+      if (x.status.toLowerCase()!=="liberado") return;
+      const passagem = regs.slice(ini, i+1), entrada = passagem.find(y=>y.data)?.data || null;
+      const servico = [...passagem].reverse().map(y=>y.servico).find(y=>y && txt(y)!=="não informado");
+      libs.push({placa:x.placa||chave, tipo: tipoPorPlaca[x.placa] || x.prefixo || "", oficina:txt(x.oficina),
+        servico:txt(servico), data:x.data, entrada, dias: (passagem.length>1 && entrada && x.data) ? diasEntre(entrada, x.data) : null, soLib: passagem.length===1,
+        obs:txt(x.descricao)});
+      ini = i+1;
+    });
+  });
+  libs.sort((a,b)=>(b.data||0)-(a.data||0) || a.placa.localeCompare(b.placa));
+  return {lista, liberados, ultimaAtualizacao, nRegistros, libs};
 }
 
 function alertasDe(v){
@@ -309,6 +332,23 @@ function renderExtras(){
     </tr>`).join("")}</tbody></table></div>`;
 }
 
+function renderLiberados(){
+  const l = liberadosLista.filter(x=>{
+    const dia = x.data?fmtData(inicioDia(x.data)):"não informado";
+    if (filtroLib.dia && dia!==filtroLib.dia) return false;
+    if (filtroLib.q && !norm([x.placa,x.tipo,x.oficina,x.servico].join(" ")).includes(norm(filtroLib.q))) return false;
+    return true;
+  });
+  $("libN").textContent = `${l.length} de ${liberadosLista.length} ${liberadosLista.length===1?"liberação":"liberações"}`;
+  $("liberados").innerHTML = !l.length ? `<div class="empty">Nenhum veículo liberado com esses filtros.</div>` : `<div style="overflow:auto"><table class="mini"><thead><tr>
+    <th>Data do registro</th><th>Placa</th><th>Tipo</th><th>Oficina</th><th>Serviço</th><th>Dias em acompanhamento</th><th>Observação</th></tr></thead><tbody>${l.map(x=>`<tr>
+      <td>${fmtData(x.data)}</td><td style="white-space:nowrap"><span class="dot" style="background:var(--good);margin-right:6px"></span><strong>${esc(x.placa)}</strong></td>
+      <td>${esc(x.tipo)}</td><td>${esc(x.oficina)}</td><td>${esc(x.servico)}</td>
+      <td>${x.soLib?`não informado<div class="obs">já entrou no controle liberado</div>`:x.dias===null?"não informado":`${x.dias} dia${x.dias===1?"":"s"}<div class="obs">desde ${fmtData(inicioDia(x.entrada))}</div>`}</td>
+      <td><div class="obs" style="margin:0">${esc(x.obs)}</div></td></tr>`).join("")}</tbody></table></div>
+    <div class="obs" style="margin-top:6px;color:var(--muted);font-size:11.5px">Data do registro = quando a liberação foi informada; a data/hora efetiva de saída da oficina pode ser anterior. Contagem de dias a partir do primeiro registro da passagem.</div>`;
+}
+
 function renderKpis(){
   const n = s => veiculos.filter(v=>v.situacaoPrev===s).length;
   const tiles = [
@@ -390,7 +430,7 @@ function tabela(lista){
 }
 
 function render(){
-  renderKpis(); renderCharts(); renderExtras();
+  renderKpis(); renderCharts(); renderExtras(); renderLiberados();
   const lista = veiculos.filter(passaFiltro);
   $("count").textContent = `${lista.length} de ${veiculos.length} pendência${veiculos.length===1?"":"s"}`;
   $("list").innerHTML = !lista.length ? `<div class="empty panel">Nenhum veículo pendente com esses filtros.</div>`
@@ -412,7 +452,11 @@ function aplicar(buf, origem){
   const wb = XLSX.read(buf,{type:"array"});
   const r = processar(wb);
   processarExtras(wb);
-  veiculos = r.lista; fonteDados = origem;
+  veiculos = r.lista; fonteDados = origem; liberadosLista = r.libs;
+  const dias=[...new Set(liberadosLista.map(l=>l.data?fmtData(inicioDia(l.data)):"não informado"))];
+  $("fLibDia").innerHTML='<option value="">Todas as datas</option>'+dias.map(d=>`<option>${esc(d)}</option>`).join("");
+  $("fLibDia").value = dias.includes(filtroLib.dia)?filtroLib.dia:"";
+  filtroLib.dia = $("fLibDia").value;
   $("sub").textContent = `Última atualização registrada: ${fmtData(r.ultimaAtualizacao)} · ${veiculos.length} pendente${veiculos.length===1?"":"s"} · ${r.liberados} liberado${r.liberados===1?"":"s"} (fora do painel)`;
   $("foot").textContent = `Fonte: ${origem} · ${r.nRegistros} registros no histórico · Status pelo último registro de cada placa. Previsão não é liberação: veículo só sai do painel com registro "Liberado". Peças saem quando Recebida/Instalada/Cancelada; agendamentos, quando a entrada é confirmada ou cancelada. Painel gerado em ${fmtData(new Date())}.`;
   $("msg").innerHTML="";
@@ -454,6 +498,8 @@ $("q").oninput=e=>{filtro.q=e.target.value.trim(); render();};
 $("fStatus").onchange=e=>{filtro.status=e.target.value; render();};
 $("fOficina").onchange=e=>{filtro.oficina=e.target.value; render();};
 $("btnClear").onclick=limpar;
+$("qLib").oninput=e=>{filtroLib.q=e.target.value.trim(); renderLiberados();};
+$("fLibDia").onchange=e=>{filtroLib.dia=e.target.value; renderLiberados();};
 $("btnReload").onclick=carregarRepo;
 $("btnView").onclick=()=>{modoTabela=!modoTabela; $("btnView").textContent=modoTabela?"Ver em cartões":"Ver em tabela"; render();};
 $("file").onchange=e=>{ if(e.target.files[0]) lerArquivo(e.target.files[0]); };
