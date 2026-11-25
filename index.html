@@ -149,10 +149,10 @@ const ABA = "Historico_Atualizacoes";
 /* cor por status (segue o status em todo o painel: badge, barra, borda do card) */
 const STATUS_COR = {
   "em manutenção":"var(--s1)", "aguardando peça":"var(--s2)", "aguardando orçamento":"var(--s3)",
-  "aguardando autorização":"var(--s4)", "aguardando diagnóstico":"var(--s5)",
+  "aguardando autorização":"var(--s4)", "aguardando diagnóstico":"var(--s5)", "peças recebidas":"var(--s7)",
   "atrasado":"var(--critical)", "sem atualização":"var(--neutral)"
 };
-const STATUS_ORDEM = ["Atrasado","Aguardando autorização","Aguardando orçamento","Aguardando peça","Aguardando diagnóstico","Em manutenção","Sem atualização"];
+const STATUS_ORDEM = ["Atrasado","Aguardando autorização","Aguardando orçamento","Aguardando peça","Aguardando diagnóstico","Peças recebidas","Em manutenção","Sem atualização"];
 const corStatus = s => STATUS_COR[(s||"").toLowerCase()] || "var(--neutral)";
 
 let pecas = [], agendamentos = [], liberadosLista = [], filtroLib = {q:"",dia:""};
