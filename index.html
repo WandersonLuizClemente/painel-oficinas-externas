@@ -135,6 +135,10 @@ footer{color:var(--muted);font-size:11.5px;margin-top:22px}
     </div>
     <div id="liberados"></div>
   </section>
+  <section class="panel" style="margin-top:12px" id="secEnc" hidden>
+    <h2 style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">Retirados do acompanhamento sem liberação <small style="color:var(--text-2);font-weight:400;font-size:12px" id="encN"></small></h2>
+    <div id="encerrados"></div>
+  </section>
   <footer id="foot"></footer>
 </main>
 <div id="tip" role="tooltip"></div>
@@ -155,7 +159,7 @@ const STATUS_COR = {
 const STATUS_ORDEM = ["Atrasado","Aguardando autorização","Aguardando orçamento","Aguardando peça","Aguardando diagnóstico","Peças recebidas","Em manutenção","Sem atualização"];
 const corStatus = s => STATUS_COR[(s||"").toLowerCase()] || "var(--neutral)";
 
-let pecas = [], agendamentos = [], liberadosLista = [], filtroLib = {q:"",dia:""};
+let pecas = [], agendamentos = [], encerradosLista = [], liberadosLista = [], filtroLib = {q:"",dia:""};
 let veiculos = [], filtro = {q:"",status:"",oficina:"",alerta:""}, modoTabela=false, fonteDados="";
 
 const $ = id => document.getElementById(id);
@@ -205,10 +209,15 @@ function processar(wb){
   });
 
   const agora = new Date(), hoje = inicioDia(agora);
-  const lista = []; let liberados = 0;
+  const lista = [], encerrados = []; let liberados = 0;
   grupos.forEach((regs,chave)=>{
     const u = regs[regs.length-1];               // último registro na ordem das linhas (igual à planilha)
     if (u.status.toLowerCase()==="liberado"){ liberados++; return; }
+    if (u.status.toLowerCase().startsWith("encerrado")){        // retirado do acompanhamento sem liberação
+      encerrados.push({placa:u.placa||chave, tipo: tipoPorPlaca[u.placa] || u.prefixo || "", oficina:txt(u.oficina),
+        servico:txt(u.servico), data:u.data, obs:txt(u.descricao)});
+      return;
+    }
     const prevData = serialParaData(u.previsao);
     const prevTexto = prevData ? fmtData(prevData) : txt(u.previsao);
     let situacaoPrev = "sem";                      // sem | vencida | hoje | futura
@@ -246,7 +255,8 @@ function processar(wb){
     });
   });
   libs.sort((a,b)=>(b.data||0)-(a.data||0) || a.placa.localeCompare(b.placa));
-  return {lista, liberados, ultimaAtualizacao, nRegistros, libs};
+  encerrados.sort((a,b)=>(b.data||0)-(a.data||0));
+  return {lista, liberados, ultimaAtualizacao, nRegistros, libs, encerrados};
 }
 
 function alertasDe(v){
@@ -332,6 +342,14 @@ function renderExtras(){
     </tr>`).join("")}</tbody></table></div>`;
 }
 
+function renderEncerrados(){
+  $("secEnc").hidden = !encerradosLista.length;
+  $("encN").textContent = `${encerradosLista.length} veículo${encerradosLista.length===1?"":"s"}`;
+  $("encerrados").innerHTML = `<div style="overflow:auto"><table class="mini"><thead><tr>
+    <th>Data do registro</th><th>Placa</th><th>Tipo</th><th>Oficina</th><th>Serviço</th><th>Motivo / observação</th></tr></thead><tbody>${encerradosLista.map(x=>`<tr>
+      <td>${fmtData(x.data)}</td><td style="white-space:nowrap"><span class="dot" style="background:var(--neutral);margin-right:6px"></span><strong>${esc(x.placa)}</strong></td>
+      <td>${esc(x.tipo)}</td><td>${esc(x.oficina)}</td><td>${esc(x.servico)}</td><td><div class="obs" style="margin:0">${esc(x.obs)}</div></td></tr>`).join("")}</tbody></table></div>`;
+}
 function renderLiberados(){
   const l = liberadosLista.filter(x=>{
     const dia = x.data?fmtData(inicioDia(x.data)):"não informado";
@@ -430,7 +448,7 @@ function tabela(lista){
 }
 
 function render(){
-  renderKpis(); renderCharts(); renderExtras(); renderLiberados();
+  renderKpis(); renderCharts(); renderExtras(); renderLiberados(); renderEncerrados();
   const lista = veiculos.filter(passaFiltro);
   $("count").textContent = `${lista.length} de ${veiculos.length} pendência${veiculos.length===1?"":"s"}`;
   $("list").innerHTML = !lista.length ? `<div class="empty panel">Nenhum veículo pendente com esses filtros.</div>`
@@ -452,13 +470,13 @@ function aplicar(buf, origem){
   const wb = XLSX.read(buf,{type:"array"});
   const r = processar(wb);
   processarExtras(wb);
-  veiculos = r.lista; fonteDados = origem; liberadosLista = r.libs;
+  veiculos = r.lista; fonteDados = origem; liberadosLista = r.libs; encerradosLista = r.encerrados;
   const dias=[...new Set(liberadosLista.map(l=>l.data?fmtData(inicioDia(l.data)):"não informado"))];
   $("fLibDia").innerHTML='<option value="">Todas as datas</option>'+dias.map(d=>`<option>${esc(d)}</option>`).join("");
   $("fLibDia").value = dias.includes(filtroLib.dia)?filtroLib.dia:"";
   filtroLib.dia = $("fLibDia").value;
   $("sub").textContent = `Última atualização registrada: ${fmtData(r.ultimaAtualizacao)} · ${veiculos.length} pendente${veiculos.length===1?"":"s"} · ${r.liberados} liberado${r.liberados===1?"":"s"} (fora do painel)`;
-  $("foot").textContent = `Fonte: ${origem} · ${r.nRegistros} registros no histórico · Status pelo último registro de cada placa. Previsão não é liberação: veículo só sai do painel com registro "Liberado". Peças saem quando Recebida/Instalada/Cancelada; agendamentos, quando a entrada é confirmada ou cancelada. Painel gerado em ${fmtData(new Date())}.`;
+  $("foot").textContent = `Fonte: ${origem} · ${r.nRegistros} registros no histórico · Status pelo último registro de cada placa. Previsão não é liberação: veículo só sai do painel com registro "Liberado" ou "Encerrado" (retirado sem liberação). Peças saem quando Recebida/Instalada/Cancelada; agendamentos, quando a entrada é confirmada ou cancelada. Painel gerado em ${fmtData(new Date())}.`;
   $("msg").innerHTML="";
   preencherSelects(); render();
 }
