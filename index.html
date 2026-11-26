@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pendências – Oficinas Externas</title>
+<link rel="icon" type="image/png" href="assets/logo-forte.png">
 <style>
 :root{
   --bg:#f4f4f2; --surface:#fcfcfb; --surface-2:#f0efec; --border:#e2e1dc;
@@ -25,6 +26,8 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:"Segoe UI",Arial,system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.4}
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:12px}
+.brand img{width:52px;height:52px;flex:none;border-radius:50%;background:#fff}
 header h1{font-size:18px;margin:0;font-weight:650}
 header .sub{color:var(--text-2);font-size:12.5px}
 .hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -97,9 +100,12 @@ footer{color:var(--muted);font-size:11.5px;margin-top:22px}
 </head>
 <body>
 <header>
-  <div>
-    <h1>Pendências – Oficinas Externas</h1>
-    <div class="sub" id="sub">Carregando…</div>
+  <div class="brand">
+    <img src="assets/logo-forte.png" alt="Forte Ambiental" width="52" height="52">
+    <div>
+      <h1>Pendências – Oficinas Externas</h1>
+      <div class="sub" id="sub">Carregando…</div>
+    </div>
   </div>
   <div class="hdr-actions">
     <button id="btnView" type="button">Ver em tabela</button>
